@@ -1,0 +1,180 @@
+
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Mar 14 10:53:28 2020
+
+@author: Sourabh Kumar
+"""
+
+import numpy as np
+from sklearn.datasets import fetch_openml
+from sklearn.naive_bayes import GaussianNB
+import matplotlib.pyplot as plt_bar
+import matplotlib.pyplot as plt_scatter
+from sklearn.preprocessing import binarize
+from sklearn.feature_selection import mutual_info_classif
+from sklearn import metrics
+
+#Load the dataset into mnist bunch or dictionary object
+mnist = fetch_openml('mnist_784', cache=False)
+
+#binarize() - Binarizes all the data set across 784 feaures based on following logic
+#range [0,127]     – Binary value 0 
+#range [128,255]   – Binary value 1
+binary_mnist_data = binarize(mnist.data) #binary_mnist_data.shape=(70000, 784)
+binary_mnist_target = mnist.target.astype(np.int)  #binary_mnist_target.shape = (70000,)
+
+#Case-1 :Extract data for only Class 0 and 1 pairs
+mnist_training_data_0_1 = binary_mnist_data[0:12000,:] #taking only first 12000 data from training set for class 0 & 1 - (12000, 784)
+mnist_test_data_0_1 = binary_mnist_data[60000:62000,:] #taking only first 2000 data from test set for class 0 & 1      - (2000, 784)
+mnist_training_target_0_1 = binary_mnist_target[0:12000,] #taking only first 12000 data from test set for class 0 & 1  - (12000,)
+mnist_test_target_0_1 = binary_mnist_target[60000:62000,] #taking only first 2000 data from test set for class 0 & 1   - (2000,)
+
+#Case-2 :Extract data for only Class 7 and 9 pairs
+mnist_training_data_7_9 = np.concatenate((binary_mnist_data[42000:48000:],binary_mnist_data[54000:60000:])) #taking concat of Class 7 & Class 9 features tarining data
+mnist_test_data_7_9 = np.concatenate((binary_mnist_data[67000:68000,:],binary_mnist_data[69000:70000,:]))  #taking concat of Class 7 & Class 9 features test data
+mnist_training_target_7_9 = np.concatenate((binary_mnist_target[42000:48000,],binary_mnist_target[54000:60000,]))  #taking concat of Class 7 & Class 9 features training target
+mnist_test_target_7_9 = np.concatenate((binary_mnist_target[67000:68000,],binary_mnist_target[69000:70000,])) #taking concat of Class 7 & Class 9 features test target 
+
+# Calculating multual information and returns the value in an signle dimentsional array
+mi_features_0_1 = mutual_info_classif(mnist_training_data_0_1, mnist_training_target_0_1,random_state=0)
+mi_features_7_9 = mutual_info_classif(mnist_training_data_7_9, mnist_training_target_7_9,random_state=0)
+
+top_80_features_based_0_1 = mi_features_0_1.argsort()[::-1][:290]
+top_80_features_based_7_9 = mi_features_7_9.argsort()[::-1][:290]
+
+total_indices = range(len(top_80_features_based_0_1))
+
+# Making blank training data set and test data set for class pair- (0 & 1)
+new_mnist_training_data_0_1 = np.array(np.empty((12000,))).reshape(-1,1)
+new_mnist_test_data_0_1 = np.array(np.empty((2000,))).reshape(-1,1)
+
+# Making blank training data set and test data set for class pair- (7 & 9)
+new_mnist_training_data_7_9 = np.array(np.empty((12000,))).reshape(-1,1)
+new_mnist_test_data_7_9 = np.array(np.empty((2000,))).reshape(-1,1)
+
+# Making new objects to store modified training data set and test data set with 
+# selected only features using mutual information feature indices above
+# top_80_features_based_0_1- this stores all the 80 feature indices for class 0 and 1 data set pair
+# top_80_features_based_7_9- this stores all the 80 feature indices for class 7 and 9 data set pair
+# new_mnist_training_data_0_1 - new training data set is created based on 80 feaures selected for class 0 & 1 pair
+# new_mnist_test_data_0_1 - new test data set is created based on 80 feaures selected for class 0 & 1 pair
+# new_mnist_training_data_7_9 - new training data set is created based on 80 feaures selected for class 7 & 9 pair
+# new_mnist_test_data_7_9 - new test data set is created based on 80 feaures selected for class 7 & 9 pair
+for i in total_indices:
+    featurewise_mnist_training_data_0_1 = mnist_training_data_0_1[:,top_80_features_based_0_1[i]]   
+    featurewise_mnist_training_data_0_1 = featurewise_mnist_training_data_0_1.reshape(-1,1)
+    new_mnist_training_data_0_1 = np.append(new_mnist_training_data_0_1,featurewise_mnist_training_data_0_1,axis=1)
+    
+    featurewise_mnist_test_data_0_1 = mnist_test_data_0_1[:,top_80_features_based_0_1[i]]   
+    featurewise_mnist_test_data_0_1 = featurewise_mnist_test_data_0_1.reshape(-1,1)    
+    new_mnist_test_data_0_1 = np.append(new_mnist_test_data_0_1,featurewise_mnist_test_data_0_1,axis=1)
+
+    featurewise_mnist_training_data_7_9 = mnist_training_data_7_9[:,top_80_features_based_7_9[i]]   
+    featurewise_mnist_training_data_7_9 = featurewise_mnist_training_data_7_9.reshape(-1,1)
+    new_mnist_training_data_7_9 = np.append(new_mnist_training_data_7_9,featurewise_mnist_training_data_7_9,axis=1)
+    
+    featurewise_mnist_test_data_7_9 = mnist_test_data_7_9[:,top_80_features_based_7_9[i]]   
+    featurewise_mnist_test_data_7_9 = featurewise_mnist_test_data_7_9.reshape(-1,1)    
+    new_mnist_test_data_7_9 = np.append(new_mnist_test_data_7_9,featurewise_mnist_test_data_7_9,axis=1)
+
+# Removing first index from all the new objects as first index came from empty array creation step for class 0 & 1     
+new_mnist_training_data_0_1 = new_mnist_training_data_0_1[:,1:] 
+new_mnist_test_data_0_1 = new_mnist_test_data_0_1[:,1:] 
+
+# Removing first index from all the new objects as first index came from empty array creation step for class 7 & 9 
+new_mnist_training_data_7_9 = new_mnist_training_data_7_9[:,1:] 
+new_mnist_test_data_7_9 = new_mnist_test_data_7_9[:,1:] 
+
+# Three algo are used
+algo_metrics = ['GNB']
+
+scores_dict_0_1 = {} #scores dictionary for class 0 & 1
+scores_list_0_1 = [] #scores list for class 0 & 1
+
+scores_dict_7_9 = {} #scores dictionary for class 7 & 9
+scores_list_7_9 = [] #scores list for class 7 & 9
+
+iters = range(0,1)
+
+# Calculating accuracy together of all the algorithms one by one for both class pairs (0 & 1) and (7 & 9)
+for i in iters:  
+    if algo_metrics[i] == 'GNB':
+        gnb = GaussianNB()
+        gnb.fit(new_mnist_training_data_0_1,mnist_training_target_0_1)
+        mnist_pred_target_0_1 = gnb.predict(new_mnist_test_data_0_1)      
+        scores = metrics.accuracy_score(mnist_test_target_0_1,mnist_pred_target_0_1)
+        scores_list_0_1.append(scores)
+
+        gnb.fit(new_mnist_training_data_7_9,mnist_training_target_7_9)
+        mnist_pred_target_7_9 = gnb.predict(new_mnist_test_data_7_9)      
+        scores = metrics.accuracy_score(mnist_test_target_7_9,mnist_pred_target_7_9)
+        scores_list_7_9.append(scores)
+        
+# Storing all the values in score dictionary for class pair (0 & 1)
+scores_dict_0_1['GNB'] = round(scores_list_0_1[0]*100)    
+scores_dict_7_9['GNB'] = round(scores_list_7_9[0]*100) 
+
+#Printing the accuracy values in tabular manner
+print('Class 0 and Class 1 data pair')
+print('Algorithms'+'\2t'+'|'+'\2t'+'Accuracy%')
+print('---------------------------------')
+for k , v in scores_dict_0_1.items():
+    print(k+'\t'+'|'+'\t', v)
+
+print('Class 7 and Class 9 data pair')
+print('Algorithms'+'\2t'+'|'+'\2t'+'Accuracy%')
+print('---------------------------------')
+for k , v in scores_dict_7_9.items():
+    print(k+'\t'+'|'+'\t', v)
+
+#Bar Plots:-
+
+labels = scores_dict_0_1.keys()
+class_0_1 = scores_dict_0_1.values()
+class_7_9 = scores_dict_7_9.values()
+x = np.arange(len(labels))
+width = 0.35
+fig, ax = plt_bar.subplots()
+rects1 = ax.bar(x - width/2, class_0_1, width, label='class_0_1')
+rects2 = ax.bar(x + width/2, class_7_9, width, label='class_7_9')
+
+# Add some text for labels, title and custom x-axis tick labels, etc.
+ax.set_ylabel('AccuracyRate')
+ax.set_title('Bar Plot- Accuracy Rate with Mutual Information')
+ax.set_xticks(x)
+ax.set_xticklabels(labels)
+ax.legend(loc='lower right')
+
+def autolabel(rects):
+    """Attach a text label above each bar in *rects*, displaying its height."""
+    for rect in rects:
+        height = rect.get_height()
+        ax.annotate('{}'.format(height),
+                    xy=(rect.get_x() + rect.get_width() / 2, height),
+                    xytext=(0, 3),  # 3 points vertical offset
+                    textcoords="offset points",
+                    ha='center', va='bottom')
+
+
+autolabel(rects1)
+autolabel(rects2)
+
+fig.tight_layout()
+
+plt_bar.show()
+
+
+# scatter points
+
+x1 = scores_dict_0_1.keys()
+y1 = scores_dict_0_1.values()
+x2 = scores_dict_7_9.keys()
+y2 = scores_dict_7_9.values()
+size=500
+plt_scatter.scatter(x1, y1, s=size,c="red", alpha=0.4, label = "class_0_1")
+plt_scatter.scatter(x2, y2, s=size,c="black", alpha=0.6, label = "class_7_9")
+plt_scatter.ylabel('AccuracyRate')
+plt_scatter.title('Bubble Plot- Accuracy Rate with Mutual Information')
+plt_scatter.legend(loc='lower left')
+plt_scatter.show()
